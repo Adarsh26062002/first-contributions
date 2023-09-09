@@ -1981,8 +1981,10 @@ Akash Abraham
 -[Nand Kishore Singh](https://github.com/NandEnigmaCode/NandEnigmaCode.git)
 - [jsj8051](https://github.com/jsj8051)
 - [Frank](https://github.com/Frank40790)
+- [Adarsh](https://github.com/Adarsh26062002)
 - [Lillyann](https://github.com/lcelisse)
 - [Abdourahmane Jalloh](https://github.com/aradradev)
 - [pipTyrannical](https://github.com/piptyrannical)
 
 - [Naufal Alief](https://github.com/naufalalief)
+  
