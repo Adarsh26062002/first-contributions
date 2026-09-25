@@ -207,6 +207,135 @@ Now let's get you started with contributing to other projects. We've compiled a 
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [GitHub Desktop](gui-tool-tutorials/github-desktop-tutorial.md)                                                                                             | [Visual Studio 2017](gui-tool-tutorials/github-windows-vs2017-tutorial.md)                                                                                                                          | [GitKraken](gui-tool-tutorials/gitkraken-tutorial.md)                                                                                                                                        | [Visual Studio Code](gui-tool-tutorials/github-windows-vs-code-tutorial.md)                                                                                                                  | [Atlassian Sourcetree](gui-tool-tutorials/sourcetree-macos-tutorial.md)                                                                                                                                      | [IntelliJ IDEA](gui-tool-tutorials/github-windows-intellij-tutorial.md)                                                                                                                                                          |
 
+## Hello World in Python
+
+`hello.py` is a single-module Python program that prints `Hello World` to standard output.
+
+Run every command in this section from the repository root.
+
+### Required Python version
+
+The program runs on [CPython 3.14.7](https://www.python.org/downloads/release/python-3147/), the latest stable release of Python, in its default (GIL-enabled) build.
+
+The file `.python-version` pins this version. uv and pyenv read it to select the interpreter, and the tests read it as the minimum version they accept.
+
+### Install Python 3.14.7
+
+#### Linux
+
+Use any one of these options.
+
+**uv.** Install uv, then install the interpreter:
+
+```
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv python install 3.14.7
+```
+
+uv places `python3.14` in `~/.local/bin`, which must be on your `PATH`.
+
+**Source build.** In a directory outside this repository, download and extract the source release, then build it:
+
+```
+curl -LO https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tar.xz
+tar -xf Python-3.14.7.tar.xz
+cd Python-3.14.7
+./configure && make && make altinstall
+```
+
+This needs a C compiler and CPython's build dependencies. `make altinstall` installs `python3.14` without replacing the system `python3`. It installs under `/usr/local` by default, so it may need `sudo`.
+
+**pyenv.** Install the interpreter with pyenv:
+
+```
+pyenv install 3.14.7
+```
+
+#### macOS
+
+Download and run the macOS 64-bit universal2 installer, `python-3.14.7-macos11.pkg`, from the [Python 3.14.7 release page](https://www.python.org/downloads/release/python-3147/). Alternatively, install uv as shown for Linux and run:
+
+```
+uv python install 3.14.7
+```
+
+#### Windows
+
+Use the Python install manager, in three steps:
+
+1. Get the install manager from the Microsoft Store, from [python.org/downloads](https://www.python.org/downloads/), or with `winget install 9NQ7512CXL7T -e --accept-package-agreements --disable-interactivity`.
+2. Install or update the 3.14 runtime with the `pymanager` command. Run `pymanager list`. If no 3.14 runtime is listed, run `pymanager install 3.14`. If one is listed, run `pymanager install --update 3.14`, which replaces an older installed patch, such as 3.14.6, with the newest available one. These steps use `pymanager` rather than `py` because a legacy Python launcher, if one is installed, takes over the `py` command.
+3. Confirm the exact version before running anything: `py -V:3.14 --version` must print `Python 3.14.7`. If it fails or prints anything else, a legacy launcher may own `py`. A legacy launcher can accept `-V:3.14` and select an older 3.14 runtime, and repeating the update does not change that selection. In that case:
+   - Run `pymanager exec -V:3.14 --version`. If it prints `Python 3.14.7`, use `pymanager exec -V:3.14` in place of `py -V:3.14` in every Windows command below.
+   - If it prints anything else, run `pymanager install --update 3.14` and repeat the `pymanager exec` check.
+   - Alternatively, uninstall "Python launcher" from Installed apps and repeat the `py -V:3.14 --version` check.
+
+Do not run or test the program on Windows until the invocation in use prints exactly `Python 3.14.7`.
+
+### Check the version
+
+```
+python3.14 --version
+```
+
+On Windows:
+
+```
+py -V:3.14 --version
+```
+
+Both must print exactly:
+
+```
+Python 3.14.7
+```
+
+### Run the program
+
+```
+python3.14 hello.py
+```
+
+On Windows:
+
+```
+py -V:3.14 hello.py
+```
+
+Expected output:
+
+```
+Hello World
+```
+
+The program exits with status 0 and writes nothing to standard error.
+
+### Run the tests
+
+```
+python3.14 -m unittest -v
+```
+
+On Windows:
+
+```
+py -V:3.14 -m unittest -v
+```
+
+Both tests, `test_prints_hello_world` and `test_interpreter_meets_pinned_version`, are reported as `ok`, followed by `Ran 2 tests` and `OK`. They prove that `hello.py` writes exactly `Hello World` and the platform line ending to standard output, exits with status 0 and writes nothing to standard error, and that the interpreter is at or above the version in `.python-version`. A newer interpreter also passes them, so the version check above is what confirms the exact release.
+
+### Moving to a newer Python release
+
+When python.org lists a newer stable release as its "Latest Python 3 Release", change the version in `.python-version` and in every version-bearing command and link in this section. Pre-releases, such as release candidates, do not count. The tokens to change are:
+
+- The dotted version `3.14.7`, in `.python-version`, `uv python install 3.14.7`, `pyenv install 3.14.7`, the macOS installer name `python-3.14.7-macos11.pkg` and the text of this section.
+- The release-page slug `python-3147`, in `https://www.python.org/downloads/release/python-3147/`.
+- The source path `/ftp/python/3.14.7/Python-3.14.7.tar.xz`, and the extracted directory name `Python-3.14.7`.
+- The minor-version command and tag `python3.14` and `3.14`, in every `python3.14` command and in `py -V:3.14`, `pymanager exec -V:3.14`, `pymanager install 3.14` and `pymanager install --update 3.14`. These change only when the minor version changes.
+- The expected version output `Python 3.14.7`.
+
+`hello.py` and the code of `test_hello.py` contain no version string, so they need no edit. The tests read their minimum version from `.python-version`.
+
 <p>This project is supported by:</p>
 <p>
   <a href="https://www.digitalocean.com/">
