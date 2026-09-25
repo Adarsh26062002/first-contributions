@@ -51,15 +51,24 @@ class HelloWorldTest(unittest.TestCase):
         passes. The exact release is confirmed separately by the version
         check that README.md documents. The minimum is read only from
         .python-version, so moving to a newer release needs no edit here.
+        A pin not of the form X.Y or X.Y.Z raises ValueError, which
+        unittest reports as an error rather than a failure.
         """
-        pin = (ROOT / ".python-version").read_text(encoding="utf-8").strip()
-        try:
-            required = tuple(int(part) for part in pin.split("."))
-        except ValueError:
-            self.fail(
-                ".python-version must hold a dotted numeric version such "
-                f"as X.Y.Z; found {pin!r}"
+        pin_path = ROOT / ".python-version"
+        pin = pin_path.read_text(encoding="utf-8").strip()
+        parts = pin.split(".")
+        # int() alone would accept a sign, underscores, non-ASCII digits or
+        # any number of components, so a malformed pin could lower the floor
+        # instead of being rejected.
+        if not (
+            2 <= len(parts) <= 3
+            and all(part.isascii() and part.isdecimal() for part in parts)
+        ):
+            raise ValueError(
+                f"{pin_path} must hold a version of the form X.Y or X.Y.Z "
+                f"using ASCII digits only; found {pin!r}"
             )
+        required = tuple(int(part) for part in parts)
         running = tuple(sys.version_info[:3])
         running_str = ".".join(str(part) for part in running)
         self.assertGreaterEqual(

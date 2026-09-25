@@ -211,7 +211,7 @@ Now let's get you started with contributing to other projects. We've compiled a 
 
 `hello.py` is a single-module Python program that prints `Hello World` to standard output.
 
-Run every command in this section from the repository root.
+Check the version, run the program and run the tests from the repository root, the directory that holds `hello.py`. The install commands can run from any directory, except the source build below, which starts at the repository root and returns there when it finishes.
 
 ### Required Python version
 
@@ -234,14 +234,19 @@ uv python install 3.14.7
 
 uv places `python3.14` in `~/.local/bin`, which must be on your `PATH`.
 
-**Source build.** In a directory outside this repository, download and extract the source release, then build it:
+**Source build.** From the repository root, download, extract and build the source release in a temporary directory outside this repository, then return to the repository root:
 
 ```
+repo_root="$PWD"
+cd "$(mktemp -d)"
 curl -LO https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tar.xz
 tar -xf Python-3.14.7.tar.xz
 cd Python-3.14.7
 ./configure && make && make altinstall
+cd "$repo_root"
 ```
+
+The last command returns you to the repository root, where the version check, run and test commands below work as shown.
 
 This needs a C compiler and CPython's build dependencies. `make altinstall` installs `python3.14` without replacing the system `python3`. It installs under `/usr/local` by default, so it may need `sudo`.
 
@@ -263,8 +268,14 @@ uv python install 3.14.7
 
 Use the Python install manager, in three steps:
 
-1. Get the install manager from the Microsoft Store, from [python.org/downloads](https://www.python.org/downloads/), or with `winget install 9NQ7512CXL7T -e --accept-package-agreements --disable-interactivity`.
-2. Install or update the 3.14 runtime with the `pymanager` command. Run `pymanager list`. If no 3.14 runtime is listed, run `pymanager install 3.14`. If one is listed, run `pymanager install --update 3.14`, which replaces an older installed patch, such as 3.14.6, with the newest available one. These steps use `pymanager` rather than `py` because a legacy Python launcher, if one is installed, takes over the `py` command.
+1. Get the install manager from the Microsoft Store, from [python.org/downloads](https://www.python.org/downloads/), or with `winget install 9NQ7512CXL7T -e --accept-package-agreements --disable-interactivity`. Then confirm that the `pymanager` command resolves in the shell you will use: `where.exe pymanager` must print a path. Do not use `py` in place of `pymanager` in the steps below. If no path is printed:
+   - Open a new terminal. A shell started before the installation keeps its old `PATH`.
+   - If it still does not resolve, open "Manage app execution aliases" from Start and check that the "Python install manager" aliases are enabled. If they already are, disable and re-enable them to refresh them. Also check that `PATH` contains `%LocalAppData%\Microsoft\WindowsApps`.
+   - As a last resort, add the manager's directory to the `PATH` of that shell only. In PowerShell, run the command that matches how you got the manager:
+     - MSI installer from python.org: `$env:PATH += ';C:\Program Files\PyManager'`
+     - MSIX package from python.org: `$env:PATH += ";$env:LOCALAPPDATA\Microsoft\WindowsApps\PythonSoftwareFoundation.PythonManager_3847v3x7pw1km"`
+     - Microsoft Store or `winget`: `$env:PATH += ";$env:LOCALAPPDATA\Microsoft\WindowsApps\PythonSoftwareFoundation.PythonManager_qbz5n2kfra8p0"`
+2. Install or update the 3.14 runtime with the `pymanager` command. Run `pymanager list`. If no 3.14 runtime is listed, run `pymanager install 3.14`. If one is listed, run `pymanager install --update 3.14`. For a runtime the manager installed, this replaces an older patch, such as 3.14.6, with the newest available one. A runtime the manager did not install, such as one from a legacy python.org installer, appears in `pymanager list` under a note that it was found but cannot be updated or uninstalled. The update leaves such a runtime in place alongside the new one, and the checks in step 3 show which runtime each command selects. These steps use `pymanager` rather than `py` because a legacy Python launcher, if one is installed, takes over the `py` command.
 3. Confirm the exact version before running anything: `py -V:3.14 --version` must print `Python 3.14.7`. If it fails or prints anything else, a legacy launcher may own `py`. A legacy launcher can accept `-V:3.14` and select an older 3.14 runtime, and repeating the update does not change that selection. In that case:
    - Run `pymanager exec -V:3.14 --version`. If it prints `Python 3.14.7`, use `pymanager exec -V:3.14` in place of `py -V:3.14` in every Windows command below.
    - If it prints anything else, run `pymanager install --update 3.14` and repeat the `pymanager exec` check.
@@ -333,6 +344,13 @@ When python.org lists a newer stable release as its "Latest Python 3 Release", c
 - The source path `/ftp/python/3.14.7/Python-3.14.7.tar.xz`, and the extracted directory name `Python-3.14.7`.
 - The minor-version command and tag `python3.14` and `3.14`, in every `python3.14` command and in `py -V:3.14`, `pymanager exec -V:3.14`, `pymanager install 3.14` and `pymanager install --update 3.14`. These change only when the minor version changes.
 - The expected version output `Python 3.14.7`.
+- The minor version `3.14` in the text of Windows steps 2 and 3, such as "the 3.14 runtime". Like the minor-version commands, it changes only when the minor version changes.
+- The older-patch example `3.14.6` in Windows step 2. Change it to the patch just before the new release, or delete the example when the new release is the first of its minor version (a `.0` release), which has no older patch.
+
+If uv or pyenv was installed before the new release came out, update it before running its new install command, because each release of either tool carries a fixed list of the Python versions it can install:
+
+- uv: run `uv self update` if you installed uv with the standalone installer above, or rerun `curl -LsSf https://astral.sh/uv/install.sh | sh`, which installs the current uv release. `uv python list` then shows the new version among the available downloads.
+- pyenv: run `pyenv update` if you installed pyenv with pyenv-installer, `git -C "$(pyenv root)" pull` if you installed it from a Git checkout, or `brew upgrade pyenv` if you installed it with Homebrew. `pyenv install --list` then includes the new version.
 
 `hello.py` and the code of `test_hello.py` contain no version string, so they need no edit. The tests read their minimum version from `.python-version`.
 
