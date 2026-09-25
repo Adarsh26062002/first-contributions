@@ -211,7 +211,7 @@ Now let's get you started with contributing to other projects. We've compiled a 
 
 `hello.py` is a single-module Python program that prints `Hello World` to standard output.
 
-Check the version, run the program and run the tests from the repository root, the directory that holds `hello.py`. The install commands can run from any directory, except the source build below, which starts at the repository root and returns there when it finishes.
+Check the version, run the program and run the tests from the repository root, the directory that holds `hello.py`. The install commands can run from any directory. The source build and the verified uv install below run in a subshell inside a temporary directory, so they leave your shell in the directory you started from, such as the repository root, even when a step fails.
 
 ### Required Python version
 
@@ -234,21 +234,46 @@ uv python install 3.14.7
 
 uv places `python3.14` in `~/.local/bin`, which must be on your `PATH`.
 
-**Source build.** From the repository root, download, extract and build the source release in a temporary directory outside this repository, then return to the repository root:
+Piping the installer into `sh` runs whatever script the server returns before you can read it, and `https://astral.sh/uv/install.sh` always serves the newest uv release. To check the installer first, download the fixed installer for uv 0.12.19 into a temporary directory, verify its GitHub artifact attestation from `astral-sh/uv`, and run it only if the check passes. This needs the [GitHub CLI](https://cli.github.com/), signed in with `gh auth login`:
 
 ```
-repo_root="$PWD"
-cd "$(mktemp -d)"
-curl -LO https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tar.xz
-tar -xf Python-3.14.7.tar.xz
-cd Python-3.14.7
-./configure && make && make altinstall
-cd "$repo_root"
+(
+  set -eu
+  command -v sha256sum >/dev/null || { echo "sha256sum not found: stopping before the uv installer runs" >&2; exit 1; }
+  uv_dir="$(mktemp -d)"
+  cd "$uv_dir"
+  curl --proto '=https' --tlsv1.2 -fLO https://github.com/astral-sh/uv/releases/download/0.12.19/uv-installer.sh
+  gh attestation verify uv-installer.sh --repo astral-sh/uv
+  sh uv-installer.sh
+)
 ```
 
-The last command returns you to the repository root, where the version check, run and test commands below work as shown.
+The installer checks the SHA-256 of the uv archive it downloads only when the `sha256sum` command exists. Without it, the installer prints a warning, skips the check and installs the archive anyway, so the block stops before running the installer when `sha256sum` is missing. The piped installer above has the same gap. macOS may provide only `shasum`: there, if `sha256sum` is not installed, use the python.org installer from the macOS section instead. After the block succeeds, install the interpreter with `uv python install 3.14.7` as above.
 
-This needs a C compiler and CPython's build dependencies. `make altinstall` installs `python3.14` without replacing the system `python3`. It installs under `/usr/local` by default, so it may need `sudo`.
+**Source build.** Build the source release in a temporary directory outside this repository. The steps download the release and its Sigstore bundle, check the archive's SHA-256 against the value published on the [Python 3.14.7 release page](https://www.python.org/downloads/release/python-3147/), and verify its signature against the identity of the 3.14 release manager, `hugo@python.org`, issued by `https://github.com/login/oauth`, as the [PSF Sigstore verification guide](https://www.python.org/downloads/metadata/sigstore/) describes. Python 3.14 and later releases are signed with Sigstore only, not PGP. The steps run in a subshell that stops at the first failed command, so nothing is extracted, configured or installed unless every earlier step passed:
+
+```
+(
+  set -eu
+  build_dir="$(mktemp -d)"
+  cd "$build_dir"
+  curl --proto '=https' --tlsv1.2 -fLO https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tar.xz
+  curl --proto '=https' --tlsv1.2 -fLO https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tar.xz.sigstore
+  echo "3b48dac8fb59f62eaa67ac83c1eb12bda1b7a08406dd286e252c11a66be27f81  Python-3.14.7.tar.xz" | sha256sum -c -
+  python3 -m venv sigstore-venv
+  sigstore-venv/bin/python -m pip install sigstore==4.5.0
+  sigstore-venv/bin/python -m sigstore verify identity --bundle Python-3.14.7.tar.xz.sigstore --cert-identity hugo@python.org --cert-oidc-issuer https://github.com/login/oauth Python-3.14.7.tar.xz
+  tar -xf Python-3.14.7.tar.xz
+  cd Python-3.14.7
+  ./configure
+  make
+  make altinstall
+)
+```
+
+Because the steps run in a subshell, your shell stays in the directory you started from whether the build finishes or stops. Started from the repository root, the version check, run and test commands below work as shown. The SHA-256 check prints `Python-3.14.7.tar.xz: OK` and the signature check prints `OK: Python-3.14.7.tar.xz`. If either check fails, the subshell stops before `tar`, and the archive is never extracted.
+
+This needs a C compiler, CPython's build dependencies and, for the Sigstore client, a system `python3` of version 3.10 or later with its `venv` module (on Debian and Ubuntu, the `python3-venv` package). `make altinstall` installs `python3.14` without replacing the system `python3`. It installs under `/usr/local` by default, so it may need root: in that case, change `make altinstall` in the block to `sudo make altinstall`. The temporary directory stays in place and can be deleted after the build.
 
 **pyenv.** Install the interpreter with pyenv:
 
@@ -258,7 +283,7 @@ pyenv install 3.14.7
 
 #### macOS
 
-Download and run the macOS 64-bit universal2 installer, `python-3.14.7-macos11.pkg`, from the [Python 3.14.7 release page](https://www.python.org/downloads/release/python-3147/). Alternatively, install uv as shown for Linux and run:
+Download and run the macOS 64-bit universal2 installer, `python-3.14.7-macos11.pkg`, from the [Python 3.14.7 release page](https://www.python.org/downloads/release/python-3147/). Alternatively, install uv as shown for Linux, including its note on `sha256sum`, and run:
 
 ```
 uv python install 3.14.7
@@ -341,16 +366,16 @@ When python.org lists a newer stable release as its "Latest Python 3 Release", c
 
 - The dotted version `3.14.7`, in `.python-version`, `uv python install 3.14.7`, `pyenv install 3.14.7`, the macOS installer name `python-3.14.7-macos11.pkg` and the text of this section.
 - The release-page slug `python-3147`, in `https://www.python.org/downloads/release/python-3147/`.
-- The source path `/ftp/python/3.14.7/Python-3.14.7.tar.xz`, and the extracted directory name `Python-3.14.7`.
+- The source path `/ftp/python/3.14.7/Python-3.14.7.tar.xz` and the Sigstore bundle `Python-3.14.7.tar.xz.sigstore`, in both download URLs and the `--bundle` argument; the archive name `Python-3.14.7.tar.xz` in the SHA-256 and signature checks and in their expected output; and the extracted directory name `Python-3.14.7`.
+- The SHA-256 digest `3b48dac8fb59f62eaa67ac83c1eb12bda1b7a08406dd286e252c11a66be27f81` in the source build. Replace it with the digest that the new release page lists for its XZ compressed source tarball.
+- The signer identity `hugo@python.org` and issuer `https://github.com/login/oauth` in the source build, and the minor version in "the 3.14 release manager". They change only when the minor version changes. Take them from the release-manager table on the [PSF Sigstore page](https://www.python.org/downloads/metadata/sigstore/).
+- The uv version `0.12.19` in the verified uv installer URL and its description. Change it to a uv release that offers the new Python version.
 - The minor-version command and tag `python3.14` and `3.14`, in every `python3.14` command and in `py -V:3.14`, `pymanager exec -V:3.14`, `pymanager install 3.14` and `pymanager install --update 3.14`. These change only when the minor version changes.
 - The expected version output `Python 3.14.7`.
 - The minor version `3.14` in the text of Windows steps 2 and 3, such as "the 3.14 runtime". Like the minor-version commands, it changes only when the minor version changes.
 - The older-patch example `3.14.6` in Windows step 2. Change it to the patch just before the new release, or delete the example when the new release is the first of its minor version (a `.0` release), which has no older patch.
 
-If uv or pyenv was installed before the new release came out, update it before running its new install command, because each release of either tool carries a fixed list of the Python versions it can install:
-
-- uv: run `uv self update` if you installed uv with the standalone installer above, or rerun `curl -LsSf https://astral.sh/uv/install.sh | sh`, which installs the current uv release. `uv python list` then shows the new version among the available downloads.
-- pyenv: run `pyenv update` if you installed pyenv with pyenv-installer, `git -C "$(pyenv root)" pull` if you installed it from a Git checkout, or `brew upgrade pyenv` if you installed it with Homebrew. `pyenv install --list` then includes the new version.
+uv installs only the Python versions that its own release knows. `uv python list` shows whether your uv release offers the new version. If it does not, rerun the uv installer from the Linux section, which installs the current uv release, or use the verified installer with a uv release that offers the new version. pyenv likewise installs only the versions that its release lists. If `pyenv install --list` does not include the new version, use uv or the verified source build instead.
 
 `hello.py` and the code of `test_hello.py` contain no version string, so they need no edit. The tests read their minimum version from `.python-version`.
 
