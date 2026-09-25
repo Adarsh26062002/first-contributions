@@ -207,6 +207,187 @@ Now let's get you started with contributing to other projects. We've compiled a 
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [GitHub Desktop](gui-tool-tutorials/github-desktop-tutorial.md)                                                                                             | [Visual Studio 2017](gui-tool-tutorials/github-windows-vs2017-tutorial.md)                                                                                                                          | [GitKraken](gui-tool-tutorials/gitkraken-tutorial.md)                                                                                                                                        | [Visual Studio Code](gui-tool-tutorials/github-windows-vs-code-tutorial.md)                                                                                                                  | [Atlassian Sourcetree](gui-tool-tutorials/sourcetree-macos-tutorial.md)                                                                                                                                      | [IntelliJ IDEA](gui-tool-tutorials/github-windows-intellij-tutorial.md)                                                                                                                                                          |
 
+## Hello World in Python
+
+`hello.py` is a single-module Python program that prints `Hello World` to standard output.
+
+Check the version, run the program and run the tests from the repository root, the directory that holds `hello.py`. The install commands can run from any directory. The source build and the verified uv install below run in a subshell inside a temporary directory, so they leave your shell in the directory you started from, such as the repository root, even when a step fails.
+
+### Required Python version
+
+The program runs on [CPython 3.14.7](https://www.python.org/downloads/release/python-3147/), the latest stable release of Python, in its default (GIL-enabled) build.
+
+The file `.python-version` pins this version. uv and pyenv read it to select the interpreter, and the tests read it as the minimum version they accept.
+
+### Install Python 3.14.7
+
+#### Linux
+
+Use any one of these options.
+
+**uv.** Install uv, then install the interpreter:
+
+```
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+uv python install 3.14.7
+```
+
+uv installs itself in `~/.local/bin`, and `uv python install` puts `python3.14` there too, so both commands resolve only when that directory is on your `PATH`. When it is not, the installer adds it to `PATH` in your shell's startup files, such as `~/.profile`, which only shells started later read. The `export` line puts it on the current shell's `PATH`, so `uv` resolves on the next line and `python3.14` resolves in the version, run and test commands below. In the current shell it has the same effect as the `source $HOME/.local/bin/env` command the installer prints, and it also works when `~/.local/bin` was already on your `PATH`, in which case the installer creates no `env` file.
+
+Piping the installer into `sh` runs whatever script the server returns before you can read it, and `https://astral.sh/uv/install.sh` always serves the newest uv release. To check the installer first, download the fixed installer for uv 0.12.19 into a temporary directory, verify its GitHub artifact attestation from `astral-sh/uv`, and run it only if the check passes. This needs the [GitHub CLI](https://cli.github.com/), signed in with `gh auth login`:
+
+```
+(
+  set -eu
+  command -v sha256sum >/dev/null || { echo "sha256sum not found: stopping before the uv installer runs" >&2; exit 1; }
+  uv_dir="$(mktemp -d)"
+  cd "$uv_dir"
+  curl --proto '=https' --tlsv1.2 -fLO https://github.com/astral-sh/uv/releases/download/0.12.19/uv-installer.sh
+  gh attestation verify uv-installer.sh --repo astral-sh/uv
+  sh uv-installer.sh
+)
+```
+
+The installer checks the SHA-256 of the uv archive it downloads only when the `sha256sum` command exists. Without it, the installer prints a warning, skips the check and installs the archive anyway, so the block stops before running the installer when `sha256sum` is missing. The piped installer above has the same gap. macOS may provide only `shasum`: there, if `sha256sum` is not installed, use the python.org installer from the macOS section instead.
+
+After the block succeeds, put `~/.local/bin` on the current shell's `PATH` and install the interpreter, as in the uv option above:
+
+```
+export PATH="$HOME/.local/bin:$PATH"
+uv python install 3.14.7
+```
+
+**Source build.** Build the source release in a temporary directory outside this repository. The steps download the release and its Sigstore bundle, check the archive's SHA-256 against the value published on the [Python 3.14.7 release page](https://www.python.org/downloads/release/python-3147/), and verify its signature against the identity of the 3.14 release manager, `hugo@python.org`, issued by `https://github.com/login/oauth`, as the [PSF Sigstore verification guide](https://www.python.org/downloads/metadata/sigstore/) describes. Python 3.14 and later releases are signed with Sigstore only, not PGP. The steps run in a subshell that stops at the first failed command, so nothing is extracted, configured or installed unless every earlier step passed:
+
+```
+(
+  set -eu
+  build_dir="$(mktemp -d)"
+  cd "$build_dir"
+  curl --proto '=https' --tlsv1.2 -fLO https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tar.xz
+  curl --proto '=https' --tlsv1.2 -fLO https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tar.xz.sigstore
+  echo "3b48dac8fb59f62eaa67ac83c1eb12bda1b7a08406dd286e252c11a66be27f81  Python-3.14.7.tar.xz" | sha256sum -c -
+  python3 -m venv sigstore-venv
+  sigstore-venv/bin/python -m pip install sigstore==4.5.0
+  sigstore-venv/bin/python -m sigstore verify identity --bundle Python-3.14.7.tar.xz.sigstore --cert-identity hugo@python.org --cert-oidc-issuer https://github.com/login/oauth Python-3.14.7.tar.xz
+  tar -xf Python-3.14.7.tar.xz
+  cd Python-3.14.7
+  ./configure
+  make
+  make altinstall
+)
+```
+
+Because the steps run in a subshell, your shell stays in the directory you started from whether the build finishes or stops. Started from the repository root, the version check, run and test commands below work as shown. The SHA-256 check prints `Python-3.14.7.tar.xz: OK` and the signature check prints `OK: Python-3.14.7.tar.xz`. If either check fails, the subshell stops before `tar`, and the archive is never extracted.
+
+This needs a C compiler, CPython's build dependencies and, for the Sigstore client, a system `python3` of version 3.10 or later with its `venv` module (on Debian and Ubuntu, the `python3-venv` package). The [Python Developer's Guide](https://devguide.python.org/getting-started/setup-building/#install-dependencies) gives the commands that install the build dependencies on common Linux distributions. `make altinstall` installs `python3.14` without replacing the system `python3`. It installs under `/usr/local` by default, so it may need root: in that case, change `make altinstall` in the block to `sudo make altinstall`. The temporary directory stays in place and can be deleted after the build.
+
+**pyenv.** Install the interpreter with pyenv:
+
+```
+pyenv install 3.14.7
+```
+
+#### macOS
+
+Download and run the macOS 64-bit universal2 installer, `python-3.14.7-macos11.pkg`, from the [Python 3.14.7 release page](https://www.python.org/downloads/release/python-3147/). Alternatively, install uv with either of the Linux uv installers, including the note on `sha256sum`, and then run, in the same shell:
+
+```
+export PATH="$HOME/.local/bin:$PATH"
+uv python install 3.14.7
+```
+
+#### Windows
+
+Use the Python install manager, in three steps:
+
+1. Get the install manager from the Microsoft Store, from [python.org/downloads](https://www.python.org/downloads/), or with `winget install 9NQ7512CXL7T -e --accept-package-agreements --disable-interactivity`. Then confirm that the `pymanager` command resolves in the shell you will use: `where.exe pymanager` must print a path. Do not use `py` in place of `pymanager` in the steps below. If no path is printed:
+   - Open a new terminal. A shell started before the installation keeps its old `PATH`.
+   - If it still does not resolve, open "Manage app execution aliases" from Start and check that the "Python install manager" aliases are enabled. If they already are, disable and re-enable them to refresh them. Also check that `PATH` contains `%LocalAppData%\Microsoft\WindowsApps`.
+   - As a last resort, add the manager's directory to the `PATH` of that shell only. In PowerShell, run the command that matches how you got the manager:
+     - MSI installer from python.org: `$env:PATH += ';C:\Program Files\PyManager'`
+     - MSIX package from python.org: `$env:PATH += ";$env:LOCALAPPDATA\Microsoft\WindowsApps\PythonSoftwareFoundation.PythonManager_3847v3x7pw1km"`
+     - Microsoft Store or `winget`: `$env:PATH += ";$env:LOCALAPPDATA\Microsoft\WindowsApps\PythonSoftwareFoundation.PythonManager_qbz5n2kfra8p0"`
+2. Install or update the 3.14 runtime with the `pymanager` command. Run `pymanager list`. If no 3.14 runtime is listed, run `pymanager install 3.14`. If one is listed, run `pymanager install --update 3.14`. For a runtime the manager installed, this replaces an older patch, such as 3.14.6, with the newest available one. A runtime the manager did not install, such as one from a legacy python.org installer, appears in `pymanager list` under a note that it was found but cannot be updated or uninstalled. The update leaves such a runtime in place alongside the new one, and the checks in step 3 show which runtime each command selects. These steps use `pymanager` rather than `py` because a legacy Python launcher, if one is installed, takes over the `py` command.
+3. Confirm the exact version before running anything: `py -V:3.14 --version` must print `Python 3.14.7`. If it fails or prints anything else, a legacy launcher may own `py`. A legacy launcher can accept `-V:3.14` and select an older 3.14 runtime, and repeating the update does not change that selection. In that case:
+   - Run `pymanager exec -V:3.14 --version`. If it prints `Python 3.14.7`, use `pymanager exec -V:3.14` in place of `py -V:3.14` in every Windows command below.
+   - If it prints anything else, run `pymanager install --update 3.14` and repeat the `pymanager exec` check.
+   - Alternatively, uninstall "Python launcher" from Installed apps and repeat the `py -V:3.14 --version` check.
+
+Do not run or test the program on Windows until the invocation in use prints exactly `Python 3.14.7`.
+
+### Check the version
+
+```
+python3.14 --version
+```
+
+On Windows:
+
+```
+py -V:3.14 --version
+```
+
+Both must print exactly:
+
+```
+Python 3.14.7
+```
+
+### Run the program
+
+```
+python3.14 hello.py
+```
+
+On Windows:
+
+```
+py -V:3.14 hello.py
+```
+
+Expected output:
+
+```
+Hello World
+```
+
+The program exits with status 0 and writes nothing to standard error.
+
+### Run the tests
+
+```
+python3.14 -m unittest -v
+```
+
+On Windows:
+
+```
+py -V:3.14 -m unittest -v
+```
+
+Both tests, `test_prints_hello_world` and `test_interpreter_meets_pinned_version`, are reported as `ok`, followed by `Ran 2 tests` and `OK`. They prove that `hello.py` writes exactly `Hello World` and the platform line ending to standard output, exits with status 0 and writes nothing to standard error, and that the interpreter is at or above the version in `.python-version`. A newer interpreter also passes them, so the version check above is what confirms the exact release.
+
+### Moving to a newer Python release
+
+When python.org lists a newer stable release as its "Latest Python 3 Release", change the version in `.python-version` and in every version-bearing command and link in this section. Pre-releases, such as release candidates, do not count. The tokens to change are:
+
+- The dotted version `3.14.7`, in `.python-version`, `uv python install 3.14.7`, `pyenv install 3.14.7`, the macOS installer name `python-3.14.7-macos11.pkg` and the text of this section.
+- The release-page slug `python-3147`, in `https://www.python.org/downloads/release/python-3147/`.
+- The source path `/ftp/python/3.14.7/Python-3.14.7.tar.xz` and the Sigstore bundle `Python-3.14.7.tar.xz.sigstore`, in both download URLs and the `--bundle` argument; the archive name `Python-3.14.7.tar.xz` in the SHA-256 and signature checks and in their expected output; and the extracted directory name `Python-3.14.7`.
+- The SHA-256 digest `3b48dac8fb59f62eaa67ac83c1eb12bda1b7a08406dd286e252c11a66be27f81` in the source build. Replace it with the digest that the new release page lists for its XZ compressed source tarball.
+- The signer identity `hugo@python.org` and issuer `https://github.com/login/oauth` in the source build, and the minor version in "the 3.14 release manager". They change only when the minor version changes. Take them from the release-manager table on the [PSF Sigstore page](https://www.python.org/downloads/metadata/sigstore/).
+- The uv version `0.12.19` in the verified uv installer URL and its description. Change it to a uv release that offers the new Python version.
+- The minor-version command and tag `python3.14` and `3.14`, in every `python3.14` command and in `py -V:3.14`, `pymanager exec -V:3.14`, `pymanager install 3.14` and `pymanager install --update 3.14`. These change only when the minor version changes.
+- The expected version output `Python 3.14.7`.
+- The minor version `3.14` in the text of Windows steps 2 and 3, such as "the 3.14 runtime". Like the minor-version commands, it changes only when the minor version changes.
+- The older-patch example `3.14.6` in Windows step 2. Change it to the patch just before the new release, or delete the example when the new release is the first of its minor version (a `.0` release), which has no older patch.
+
+uv installs only the Python versions that its own release knows. `uv python list` shows whether your uv release offers the new version. If it does not, rerun the uv installer from the Linux section, which installs the current uv release, or use the verified installer with a uv release that offers the new version. pyenv likewise installs only the versions that its release lists. If `pyenv install --list` does not include the new version, use uv or the verified source build instead.
+
+`hello.py` and the code of `test_hello.py` contain no version string, so they need no edit. The tests read their minimum version from `.python-version`.
+
 <p>This project is supported by:</p>
 <p>
   <a href="https://www.digitalocean.com/">
