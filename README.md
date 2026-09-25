@@ -229,10 +229,11 @@ Use any one of these options.
 
 ```
 curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
 uv python install 3.14.7
 ```
 
-uv places `python3.14` in `~/.local/bin`, which must be on your `PATH`.
+uv installs itself in `~/.local/bin`, and `uv python install` puts `python3.14` there too, so both commands resolve only when that directory is on your `PATH`. When it is not, the installer adds it to `PATH` in your shell's startup files, such as `~/.profile`, which only shells started later read. The `export` line puts it on the current shell's `PATH`, so `uv` resolves on the next line and `python3.14` resolves in the version, run and test commands below. In the current shell it has the same effect as the `source $HOME/.local/bin/env` command the installer prints, and it also works when `~/.local/bin` was already on your `PATH`, in which case the installer creates no `env` file.
 
 Piping the installer into `sh` runs whatever script the server returns before you can read it, and `https://astral.sh/uv/install.sh` always serves the newest uv release. To check the installer first, download the fixed installer for uv 0.12.19 into a temporary directory, verify its GitHub artifact attestation from `astral-sh/uv`, and run it only if the check passes. This needs the [GitHub CLI](https://cli.github.com/), signed in with `gh auth login`:
 
@@ -248,7 +249,14 @@ Piping the installer into `sh` runs whatever script the server returns before yo
 )
 ```
 
-The installer checks the SHA-256 of the uv archive it downloads only when the `sha256sum` command exists. Without it, the installer prints a warning, skips the check and installs the archive anyway, so the block stops before running the installer when `sha256sum` is missing. The piped installer above has the same gap. macOS may provide only `shasum`: there, if `sha256sum` is not installed, use the python.org installer from the macOS section instead. After the block succeeds, install the interpreter with `uv python install 3.14.7` as above.
+The installer checks the SHA-256 of the uv archive it downloads only when the `sha256sum` command exists. Without it, the installer prints a warning, skips the check and installs the archive anyway, so the block stops before running the installer when `sha256sum` is missing. The piped installer above has the same gap. macOS may provide only `shasum`: there, if `sha256sum` is not installed, use the python.org installer from the macOS section instead.
+
+After the block succeeds, put `~/.local/bin` on the current shell's `PATH` and install the interpreter, as in the uv option above:
+
+```
+export PATH="$HOME/.local/bin:$PATH"
+uv python install 3.14.7
+```
 
 **Source build.** Build the source release in a temporary directory outside this repository. The steps download the release and its Sigstore bundle, check the archive's SHA-256 against the value published on the [Python 3.14.7 release page](https://www.python.org/downloads/release/python-3147/), and verify its signature against the identity of the 3.14 release manager, `hugo@python.org`, issued by `https://github.com/login/oauth`, as the [PSF Sigstore verification guide](https://www.python.org/downloads/metadata/sigstore/) describes. Python 3.14 and later releases are signed with Sigstore only, not PGP. The steps run in a subshell that stops at the first failed command, so nothing is extracted, configured or installed unless every earlier step passed:
 
@@ -273,7 +281,7 @@ The installer checks the SHA-256 of the uv archive it downloads only when the `s
 
 Because the steps run in a subshell, your shell stays in the directory you started from whether the build finishes or stops. Started from the repository root, the version check, run and test commands below work as shown. The SHA-256 check prints `Python-3.14.7.tar.xz: OK` and the signature check prints `OK: Python-3.14.7.tar.xz`. If either check fails, the subshell stops before `tar`, and the archive is never extracted.
 
-This needs a C compiler, CPython's build dependencies and, for the Sigstore client, a system `python3` of version 3.10 or later with its `venv` module (on Debian and Ubuntu, the `python3-venv` package). `make altinstall` installs `python3.14` without replacing the system `python3`. It installs under `/usr/local` by default, so it may need root: in that case, change `make altinstall` in the block to `sudo make altinstall`. The temporary directory stays in place and can be deleted after the build.
+This needs a C compiler, CPython's build dependencies and, for the Sigstore client, a system `python3` of version 3.10 or later with its `venv` module (on Debian and Ubuntu, the `python3-venv` package). The [Python Developer's Guide](https://devguide.python.org/getting-started/setup-building/#install-dependencies) gives the commands that install the build dependencies on common Linux distributions. `make altinstall` installs `python3.14` without replacing the system `python3`. It installs under `/usr/local` by default, so it may need root: in that case, change `make altinstall` in the block to `sudo make altinstall`. The temporary directory stays in place and can be deleted after the build.
 
 **pyenv.** Install the interpreter with pyenv:
 
@@ -283,9 +291,10 @@ pyenv install 3.14.7
 
 #### macOS
 
-Download and run the macOS 64-bit universal2 installer, `python-3.14.7-macos11.pkg`, from the [Python 3.14.7 release page](https://www.python.org/downloads/release/python-3147/). Alternatively, install uv as shown for Linux, including its note on `sha256sum`, and run:
+Download and run the macOS 64-bit universal2 installer, `python-3.14.7-macos11.pkg`, from the [Python 3.14.7 release page](https://www.python.org/downloads/release/python-3147/). Alternatively, install uv with either of the Linux uv installers, including the note on `sha256sum`, and then run, in the same shell:
 
 ```
+export PATH="$HOME/.local/bin:$PATH"
 uv python install 3.14.7
 ```
 
